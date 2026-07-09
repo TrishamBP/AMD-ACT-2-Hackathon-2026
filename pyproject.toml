@@ -1,0 +1,66 @@
+[project]
+name = "fireworks-agent"
+version = "0.1.0"
+description = "Production-grade AI agent for Fireworks AI competition"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    # Core async
+    "httpx>=0.27.0",
+    "asyncio-atexit>=1.0.1",
+
+    # LangChain ecosystem
+    "langchain>=0.3.0",
+    "langchain-community>=0.3.0",
+    "langchain-fireworks>=0.2.0",
+    "langgraph>=0.2.0",
+    "langsmith>=0.2.0",
+
+    # Data validation
+    "pydantic>=2.0.0",
+    "pydantic-settings>=2.0.0",
+
+    # JSON performance
+    "orjson>=3.10.0",
+
+    # Environment (dev only, not in Docker)
+    "python-dotenv>=1.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.23.0",
+    "pytest-cov>=4.1.0",
+    "ruff>=0.6.0",
+    "mypy>=1.11.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "UP", "ANN", "ASYNC", "S", "B", "A", "C4", "T20", "RET", "SIM"]
+ignore = ["ANN101", "ANN102", "ANN401"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]

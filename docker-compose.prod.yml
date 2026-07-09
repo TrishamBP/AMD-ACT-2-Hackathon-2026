@@ -1,0 +1,32 @@
+services:
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: fireworks-agent:latest
+    container_name: fireworks-agent
+    environment:
+      FIREWORKS_API_KEY: ${FIREWORKS_API_KEY}
+      FIREWORKS_BASE_URL: ${FIREWORKS_BASE_URL}
+      ALLOWED_MODELS: ${ALLOWED_MODELS}
+      LANGSMITH_API_KEY: ${LANGSMITH_API_KEY:-}
+      LANGSMITH_PROJECT: ${LANGSMITH_PROJECT:-}
+      MAX_CONCURRENCY: ${MAX_CONCURRENCY:-10}
+      TIMEOUT: ${TIMEOUT:-60}
+    volumes:
+      - input-data:/input:ro
+      - output-data:/output
+    init: true
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp
+      - /home/app
+    restart: "no"
+
+volumes:
+  input-data:
+  output-data:

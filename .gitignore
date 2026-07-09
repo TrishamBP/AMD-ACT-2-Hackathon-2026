@@ -1,0 +1,54 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+*.pyo
+*.pyd
+build/
+dist/
+wheels/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Local environment and secrets
+.env
+.env.*
+*.pem
+*.key
+*.crt
+
+# Editor and IDE files
+.idea/
+.vscode/
+.claude/
+.codex/
+
+# Local scratch and build artifacts
+.tmp_offline/
+.tmp_review/
+logs/
+output/
+datasets/
+training_outputs/
+checkpoints/
+models/
+registry/
+*.log
+*.tmp
+*.cache
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Docker and packaging noise
+*.tar
+*.tgz
+*.zip
+*.whl

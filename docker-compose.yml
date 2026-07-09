@@ -1,0 +1,44 @@
+services:
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: fireworks-agent:dev
+    container_name: fireworks-agent-dev
+    command: []
+    environment:
+      FIREWORKS_API_KEY: ${FIREWORKS_API_KEY:-}
+      FIREWORKS_BASE_URL: ${FIREWORKS_BASE_URL:-}
+      ALLOWED_MODELS: ${ALLOWED_MODELS:-}
+      LANGSMITH_API_KEY: ${LANGSMITH_API_KEY:-}
+      LANGSMITH_PROJECT: ${LANGSMITH_PROJECT:-}
+      MAX_CONCURRENCY: ${MAX_CONCURRENCY:-10}
+      TIMEOUT: ${TIMEOUT:-60}
+    volumes:
+      - .:/app
+      - ./input:/input
+      - ./output:/output
+    user: "${UID:-10001}:${GID:-10001}"
+    working_dir: /app
+    init: true
+    read_only: false
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp
+      - /home/app
+    restart: "no"
+    develop:
+      watch:
+        - action: sync
+          path: ./src
+          target: /app/src
+        - action: sync
+          path: ./docker/entrypoint.sh
+          target: /app/docker-entrypoint.sh
+        - action: rebuild
+          path: ./pyproject.toml
+        - action: rebuild
+          path: ./Dockerfile
