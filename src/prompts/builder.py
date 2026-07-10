@@ -15,38 +15,14 @@ from src.models.task import Task
 from src.routing.router import RoutingDecision
 
 _TEMPLATES: dict[str, str] = {
-    FACTUAL_KNOWLEDGE: "Answer concisely.\n\n{prompt}",
-    MATHEMATICAL_REASONING: (
-        "{prompt}\n\n"
-        "Show each calculation step briefly, then on the last line write only the final number."
-    ),
-    SENTIMENT_CLASSIFICATION: (
-        "{prompt}\n\n"
-        "Answer: positive, negative, or mixed"
-    ),
-    TEXT_SUMMARIZATION: (
-        "{prompt}\n\n"
-        "Summarize in one sentence."
-    ),
-    NAMED_ENTITY_RECOGNITION: (
-        "{prompt}\n\n"
-        "Extract entities:\n- Name: Type"
-    ),
-    CODE_DEBUGGING: (
-        "{prompt}\n\n"
-        "Fixed code:"
-    ),
-    LOGICAL_REASONING: (
-        "{prompt}\n\n"
-        "Work through each constraint one by one:\n"
-        "1. List all constraints from the problem.\n"
-        "2. Apply each constraint to eliminate possibilities.\n"
-        "3. State the final answer clearly."
-    ),
-    CODE_GENERATION: (
-        "{prompt}\n\n"
-        "```python\n"
-    ),
+    FACTUAL_KNOWLEDGE: "{prompt}\n\nAnswer briefly.",
+    MATHEMATICAL_REASONING: "{prompt}\n\nSolve. Final line: just the number.",
+    SENTIMENT_CLASSIFICATION: "{prompt}\n\nSentiment (one word):",
+    TEXT_SUMMARIZATION: "{prompt}\n\nOne sentence summary:",
+    NAMED_ENTITY_RECOGNITION: "{prompt}\n\nEntities (Name: Type):",
+    CODE_DEBUGGING: "{prompt}\n\nFixed code:",
+    LOGICAL_REASONING: "{prompt}\n\nApply each constraint, then state the answer.",
+    CODE_GENERATION: "{prompt}\n\n```python\n",
 }
 
 

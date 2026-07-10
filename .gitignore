@@ -35,7 +35,7 @@ output/
 datasets/
 training_outputs/
 checkpoints/
-models/
+/models/
 registry/
 *.log
 *.tmp

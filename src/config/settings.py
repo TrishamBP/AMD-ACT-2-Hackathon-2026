@@ -12,8 +12,8 @@ class Settings:
     allowed_models: list[str]
     max_concurrency: int = 10
     timeout: int = 60
-    router_threshold: float = 0.65
-    router_margin_threshold: float = 0.15
+    router_threshold: float = 0.10
+    router_margin_threshold: float = 0.0
     router_max_tokens: int = 32
     client_retries: int = 3
 

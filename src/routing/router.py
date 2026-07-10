@@ -376,8 +376,13 @@ async def route_task(task: Task, settings: Settings) -> RoutingDecision:
         route_source = "rules"
         route_confidence = confidence
     else:
-        category, route_confidence = await _fallback_llm_route(task.prompt, settings)
-        route_source = "llm"
+        try:
+            category, route_confidence = await _fallback_llm_route(task.prompt, settings)
+            route_source = "llm"
+        except Exception:
+            category = winner
+            route_confidence = confidence
+            route_source = "rules_fallback"
         winner, confidence, runner_up, margin = _select_winner(scores)
 
     model_metadata = _select_handler_model(category, settings.allowed_models)
