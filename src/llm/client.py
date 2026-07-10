@@ -34,7 +34,6 @@ async def get_fireworks_client(settings: Settings) -> httpx.AsyncClient:
         )
 
         _CLIENT = httpx.AsyncClient(
-            base_url=settings.base_url.rstrip("/"),
             timeout=timeout,
             headers={
                 "Authorization": f"Bearer {settings.api_key}",
@@ -177,9 +176,10 @@ async def call_fireworks(
         "max_tokens": max_tokens,
     }
 
+    url = settings.base_url.rstrip("/") + "/chat/completions"
     data, latency_ms = await _request_with_retry(
         client,
-        "/chat/completions",
+        url,
         payload,
         retries=max(1, settings.client_retries),
     )
