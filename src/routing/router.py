@@ -295,13 +295,7 @@ def _select_smallest_model(model_ids: list[str]) -> ModelMetadata:
 
 
 def _category_min_params(category: str) -> float:
-    if category in {SENTIMENT_CLASSIFICATION, NAMED_ENTITY_RECOGNITION}:
-        return 1.0
-    if category in {FACTUAL_KNOWLEDGE, TEXT_SUMMARIZATION, LOGICAL_REASONING}:
-        return 3.0
-    if category in {MATHEMATICAL_REASONING, CODE_DEBUGGING, CODE_GENERATION}:
-        return 7.0
-    return 3.0
+    return 0.0
 
 
 def _select_handler_model(category: str, allowed_models: list[str]) -> ModelMetadata:

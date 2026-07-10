@@ -5,7 +5,7 @@ from src.models.task import Task
 from src.models.result import Result
 from src.config.settings import Settings
 from src.routing.router import route_task
-from src.prompts.builder import build_prompt
+from src.prompts.builder import build_prompt, get_max_tokens
 from src.llm.client import call_fireworks
 from src.llm.parser import parse_response
 
@@ -24,6 +24,7 @@ async def process_single_task(task: Task, settings: Settings) -> Result:
     models_to_try = [routing_decision.model] + [
         m for m in settings.allowed_models if m != routing_decision.model
     ]
+    max_tokens = get_max_tokens(routing_decision.category)
 
     last_error = None
     for model in models_to_try:
@@ -32,7 +33,7 @@ async def process_single_task(task: Task, settings: Settings) -> Result:
                 prompt,
                 model,
                 settings,
-                max_tokens=1024,
+                max_tokens=max_tokens,
                 temperature=0.0,
             )
             answer = parse_response(response, routing_decision.category)

@@ -15,39 +15,31 @@ from src.models.task import Task
 from src.routing.router import RoutingDecision
 
 _TEMPLATES: dict[str, str] = {
-    FACTUAL_KNOWLEDGE: (
-        "{prompt}\n\n"
-        "Give a clear, direct answer. Be concise but complete."
-    ),
-    MATHEMATICAL_REASONING: (
-        "{prompt}\n\n"
-        "Solve step by step, then clearly state the final answer."
-    ),
-    SENTIMENT_CLASSIFICATION: (
-        "{prompt}\n\n"
-        "Classify the sentiment and briefly justify your classification."
-    ),
-    TEXT_SUMMARIZATION: (
-        "{prompt}\n\n"
-        "Provide a concise summary following any length/format constraints given above."
-    ),
-    NAMED_ENTITY_RECOGNITION: (
-        "{prompt}\n\n"
-        "List each entity with its type (Person, Organization, Location, Date, etc.)."
-    ),
-    CODE_DEBUGGING: (
-        "{prompt}\n\n"
-        "Identify the bug, explain it briefly, then provide the corrected code."
-    ),
-    LOGICAL_REASONING: (
-        "{prompt}\n\n"
-        "Reason through this step by step, then clearly state your final answer."
-    ),
-    CODE_GENERATION: (
-        "{prompt}\n\n"
-        "Write the complete, working code."
-    ),
+    FACTUAL_KNOWLEDGE: "{prompt}\nAnswer:",
+    MATHEMATICAL_REASONING: "{prompt}\nSolve, then state the final answer.",
+    SENTIMENT_CLASSIFICATION: "{prompt}\nSentiment:",
+    TEXT_SUMMARIZATION: "{prompt}\nSummary:",
+    NAMED_ENTITY_RECOGNITION: "{prompt}\nEntities:",
+    CODE_DEBUGGING: "{prompt}\nBug and fix:",
+    LOGICAL_REASONING: "{prompt}\nReason step by step. Answer:",
+    CODE_GENERATION: "{prompt}",
 }
+
+_MAX_TOKENS: dict[str, int] = {
+    FACTUAL_KNOWLEDGE: 150,
+    MATHEMATICAL_REASONING: 200,
+    SENTIMENT_CLASSIFICATION: 30,
+    TEXT_SUMMARIZATION: 150,
+    NAMED_ENTITY_RECOGNITION: 100,
+    CODE_DEBUGGING: 256,
+    LOGICAL_REASONING: 150,
+    CODE_GENERATION: 300,
+}
+
+
+def get_max_tokens(category: str) -> int:
+    """Get max tokens for a category."""
+    return _MAX_TOKENS.get(category, 256)
 
 
 def build_prompt(task: Task, routing_decision: RoutingDecision) -> str:
