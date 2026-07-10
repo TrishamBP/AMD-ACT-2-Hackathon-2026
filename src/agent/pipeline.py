@@ -17,7 +17,13 @@ async def process_single_task(task: Task, settings: Settings) -> Result:
     prompt = build_prompt(task, routing_decision)
 
     # Call Fireworks
-    response = await call_fireworks(prompt, routing_decision.model, settings)
+    response = await call_fireworks(
+        prompt,
+        routing_decision.model,
+        settings,
+        max_tokens=512,
+        temperature=0.0,
+    )
 
     # Parse response
     answer = parse_response(response, routing_decision.category)
@@ -42,6 +48,6 @@ async def process_single_task(task: Task, settings: Settings) -> Result:
                 "reasoning": routing_decision.model_metadata.reasoning,
                 "vision": routing_decision.model_metadata.vision,
             },
-            "tokens": response.tokens_used,
+            "tokens": response.token_usage.total_tokens,
         },
     )

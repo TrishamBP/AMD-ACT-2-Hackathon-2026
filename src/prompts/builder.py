@@ -15,43 +15,37 @@ from src.models.task import Task
 from src.routing.router import RoutingDecision
 
 _TEMPLATES: dict[str, str] = {
-    FACTUAL_KNOWLEDGE: "Answer the question factually and concisely.\n\n{prompt}",
+    FACTUAL_KNOWLEDGE: "Answer concisely.\n\n{prompt}",
     MATHEMATICAL_REASONING: (
-        "Solve this step by step:\n\n"
         "{prompt}\n\n"
-        "Show your work, then state the final answer as a number."
+        "Show each calculation step briefly, then on the last line write only the final number."
     ),
     SENTIMENT_CLASSIFICATION: (
-        "Classify the overall sentiment as: positive, negative, or mixed.\n\n"
         "{prompt}\n\n"
-        "Answer with one word only."
+        "Answer: positive, negative, or mixed"
     ),
     TEXT_SUMMARIZATION: (
-        "Read the following text and summarize it in exactly one sentence. "
-        "Include the main topics and key points.\n\n"
-        "{prompt}"
+        "{prompt}\n\n"
+        "Summarize in one sentence."
     ),
     NAMED_ENTITY_RECOGNITION: (
-        "Extract ALL named entities from the text below. "
-        "For each entity, identify its type (PERSON, ORGANIZATION, LOCATION, DATE, etc.).\n\n"
-        "Text: {prompt}\n\n"
-        "Format:\n"
-        "- Entity name: Type"
+        "{prompt}\n\n"
+        "Extract entities:\n- Name: Type"
     ),
     CODE_DEBUGGING: (
-        "The code below has a bug. Identify the bug and provide the corrected code.\n\n"
         "{prompt}\n\n"
-        "Return only the fixed code."
+        "Fixed code:"
     ),
     LOGICAL_REASONING: (
-        "Solve this logic puzzle step by step:\n\n"
         "{prompt}\n\n"
-        "State your reasoning, then give the final answer."
+        "Work through each constraint one by one:\n"
+        "1. List all constraints from the problem.\n"
+        "2. Apply each constraint to eliminate possibilities.\n"
+        "3. State the final answer clearly."
     ),
     CODE_GENERATION: (
-        "Write a Python function that:\n\n"
         "{prompt}\n\n"
-        "Return only the complete, working code."
+        "```python\n"
     ),
 }
 

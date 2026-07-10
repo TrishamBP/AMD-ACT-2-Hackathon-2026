@@ -319,9 +319,9 @@ def _select_handler_model(category: str, allowed_models: list[str]) -> ModelMeta
 
 def _format_router_prompt(prompt: str) -> str:
     return (
-        "You are a task classifier.\n"
-        "Choose exactly one category.\n"
-        "Return JSON only.\n\n"
+        "Classify this task into exactly one category.\n"
+        "Respond with ONLY valid JSON in this exact format:\n"
+        '{"category":"category_name","confidence":0.95}\n\n'
         "Categories:\n"
         f"- {FACTUAL_KNOWLEDGE}\n"
         f"- {MATHEMATICAL_REASONING}\n"
@@ -331,8 +331,8 @@ def _format_router_prompt(prompt: str) -> str:
         f"- {CODE_DEBUGGING}\n"
         f"- {LOGICAL_REASONING}\n"
         f"- {CODE_GENERATION}\n\n"
-        f"Input:\n{prompt}\n\n"
-        'Output:\n{"category":"","confidence":0.0}'
+        f"Task: {prompt}\n\n"
+        "JSON response:"
     )
 
 

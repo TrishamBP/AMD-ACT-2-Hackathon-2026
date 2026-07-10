@@ -13,7 +13,7 @@
   },
   {
     "task_id": "practice-04",
-    "prompt": "Summarize the following in exactly one sentence: [your own sample paragraph here]."
+    "prompt": "Summarize the following in exactly one sentence: Artificial intelligence has transformed modern computing. Machine learning algorithms can now process vast amounts of data and identify patterns that humans might miss. This technology is being applied across healthcare, finance, and many other industries."
   },
   {
     "task_id": "practice-05",

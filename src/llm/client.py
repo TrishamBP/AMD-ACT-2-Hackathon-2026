@@ -179,7 +179,7 @@ async def call_fireworks(
 
     data, latency_ms = await _request_with_retry(
         client,
-        "chat/completions",
+        "/chat/completions",
         payload,
         retries=max(1, settings.client_retries),
     )
