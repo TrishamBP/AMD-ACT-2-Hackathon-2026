@@ -25,20 +25,14 @@ FROM python:3.12-slim-bookworm AS runtime
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    HOME=/home/app \
     PATH="/opt/venv/bin:${PATH}"
 
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends gosu && \
-    rm -rf /var/lib/apt/lists/* && \
-    useradd --create-home --home-dir /home/app --shell /usr/sbin/nologin --uid 10001 appuser && \
-    mkdir -p /input /output /app && \
-    chown -R appuser:appuser /input /output /app /home/app
+RUN mkdir -p /input /output /app
 
 WORKDIR /app
 
 COPY --from=builder /opt/venv /opt/venv
-COPY --from=builder --chown=appuser:appuser /build/docker/entrypoint.sh /app/docker-entrypoint.sh
+COPY --from=builder /build/docker/entrypoint.sh /app/docker-entrypoint.sh
 
 RUN chmod 0755 /app/docker-entrypoint.sh
 
