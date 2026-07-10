@@ -26,8 +26,6 @@ env/
 # Editor and IDE files
 .idea/
 .vscode/
-.claude/
-.codex/
 
 # Local scratch and build artifacts
 .tmp_offline/
@@ -52,3 +50,33 @@ Thumbs.db
 *.tgz
 *.zip
 *.whl
+
+training/
+
+# Testing and development files (not part of submission)
+test_track1.py
+test_track1_with_accuracy.py
+test_track1_improved.py
+test_ollama.sh
+test_ollama.bat
+tests/test_ollama_local.py
+tests/test_ollama_track1.py
+examples/ollama_example.py
+scripts/test_with_ollama.py
+
+# Ollama testing infrastructure
+src/llm/ollama_client.py
+
+# Testing documentation (keep main docs, exclude test guides)
+README_OLLAMA.md
+GET_STARTED.md
+TRACK1_TESTING.md
+TRACK1_QUICKSTART.txt
+SETUP_COMPLETE.txt
+docs/OLLAMA_TESTING.md
+docs/QUICK_START_OLLAMA.md
+
+# Test outputs and temporary files
+output/results.json
+baseline.txt
+optimized.txt

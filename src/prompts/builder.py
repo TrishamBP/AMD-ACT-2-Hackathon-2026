@@ -16,19 +16,43 @@ from src.routing.router import RoutingDecision
 
 _TEMPLATES: dict[str, str] = {
     FACTUAL_KNOWLEDGE: "Answer the question factually and concisely.\n\n{prompt}",
-    MATHEMATICAL_REASONING: "Solve the problem. Return the final answer only.\n\n{prompt}",
+    MATHEMATICAL_REASONING: (
+        "Solve this step by step:\n\n"
+        "{prompt}\n\n"
+        "Show your work, then state the final answer as a number."
+    ),
     SENTIMENT_CLASSIFICATION: (
-        "Classify sentiment as positive, negative, or neutral. "
-        "Return one label.\n\n{prompt}"
+        "Classify the overall sentiment as: positive, negative, or mixed.\n\n"
+        "{prompt}\n\n"
+        "Answer with one word only."
     ),
-    TEXT_SUMMARIZATION: "Summarize in one sentence.\n\n{prompt}",
+    TEXT_SUMMARIZATION: (
+        "Read the following text and summarize it in exactly one sentence. "
+        "Include the main topics and key points.\n\n"
+        "{prompt}"
+    ),
     NAMED_ENTITY_RECOGNITION: (
-        "Extract entities as JSON with keys person, organization, "
-        "location, date.\n\n{prompt}"
+        "Extract ALL named entities from the text below. "
+        "For each entity, identify its type (PERSON, ORGANIZATION, LOCATION, DATE, etc.).\n\n"
+        "Text: {prompt}\n\n"
+        "Format:\n"
+        "- Entity name: Type"
     ),
-    CODE_DEBUGGING: "Find the bug, fix it, and return the corrected code.\n\n{prompt}",
-    LOGICAL_REASONING: "Reason carefully and return the conclusion only.\n\n{prompt}",
-    CODE_GENERATION: "Write correct code. Return code only.\n\n{prompt}",
+    CODE_DEBUGGING: (
+        "The code below has a bug. Identify the bug and provide the corrected code.\n\n"
+        "{prompt}\n\n"
+        "Return only the fixed code."
+    ),
+    LOGICAL_REASONING: (
+        "Solve this logic puzzle step by step:\n\n"
+        "{prompt}\n\n"
+        "State your reasoning, then give the final answer."
+    ),
+    CODE_GENERATION: (
+        "Write a Python function that:\n\n"
+        "{prompt}\n\n"
+        "Return only the complete, working code."
+    ),
 }
 
 
