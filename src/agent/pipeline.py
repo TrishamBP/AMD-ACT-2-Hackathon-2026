@@ -1,4 +1,6 @@
 """Single task processing pipeline."""
+import logging
+
 from src.models.task import Task
 from src.models.result import Result
 from src.config.settings import Settings
@@ -6,6 +8,8 @@ from src.routing.router import route_task
 from src.prompts.builder import build_prompt
 from src.llm.client import call_fireworks
 from src.llm.parser import parse_response
+
+logger = logging.getLogger(__name__)
 
 
 async def process_single_task(task: Task, settings: Settings) -> Result:
@@ -16,38 +20,37 @@ async def process_single_task(task: Task, settings: Settings) -> Result:
     # Build prompt
     prompt = build_prompt(task, routing_decision)
 
-    # Call Fireworks
-    response = await call_fireworks(
-        prompt,
-        routing_decision.model,
-        settings,
-        max_tokens=1024,
-        temperature=0.0,
-    )
+    # Try with routed model first, then fall back to each allowed model
+    models_to_try = [routing_decision.model] + [
+        m for m in settings.allowed_models if m != routing_decision.model
+    ]
 
-    # Parse response
-    answer = parse_response(response, routing_decision.category)
+    last_error = None
+    for model in models_to_try:
+        try:
+            response = await call_fireworks(
+                prompt,
+                model,
+                settings,
+                max_tokens=1024,
+                temperature=0.0,
+            )
+            answer = parse_response(response, routing_decision.category)
+            return Result(
+                task_id=task.task_id,
+                answer=answer,
+                metadata={
+                    "category": routing_decision.category,
+                    "model": model,
+                    "tokens": response.token_usage.total_tokens,
+                },
+            )
+        except Exception as e:
+            last_error = e
+            logger.warning(f"Model {model} failed for {task.task_id}: {e}")
+            continue
 
-    # Return result
-    return Result(
-        task_id=task.task_id,
-        answer=answer,
-        metadata={
-            "category": routing_decision.category,
-            "model": routing_decision.model,
-            "route_source": routing_decision.route_source,
-            "router_confidence": routing_decision.confidence,
-            "router_margin": routing_decision.margin,
-            "router_scores": routing_decision.scores,
-            "router_evidence": routing_decision.evidence,
-            "model_metadata": {
-                "id": routing_decision.model_metadata.id,
-                "family": routing_decision.model_metadata.family,
-                "params_billion": routing_decision.model_metadata.params_billion,
-                "instruction": routing_decision.model_metadata.instruction,
-                "reasoning": routing_decision.model_metadata.reasoning,
-                "vision": routing_decision.model_metadata.vision,
-            },
-            "tokens": response.token_usage.total_tokens,
-        },
+    # All models failed - raise so executor handles it
+    raise RuntimeError(
+        f"All models failed for {task.task_id}: {last_error}"
     )

@@ -31,7 +31,11 @@ async def execute_tasks(tasks: list[Task], settings: Settings) -> list[Result]:
         if isinstance(result, Exception):
             logger.error(f"Task {task.task_id} failed: {result}")
             processed_results.append(
-                Result(task_id=task.task_id, answer="", metadata={"error": str(result)})
+                Result(
+                    task_id=task.task_id,
+                    answer=f"I cannot determine the answer to this question.",
+                    metadata={"error": str(result)},
+                )
             )
         else:
             processed_results.append(result)
