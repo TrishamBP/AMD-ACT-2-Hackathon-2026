@@ -21,7 +21,7 @@ async def process_single_task(task: Task, settings: Settings) -> Result:
         prompt,
         routing_decision.model,
         settings,
-        max_tokens=512,
+        max_tokens=1024,
         temperature=0.0,
     )
 

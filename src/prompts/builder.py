@@ -15,14 +15,38 @@ from src.models.task import Task
 from src.routing.router import RoutingDecision
 
 _TEMPLATES: dict[str, str] = {
-    FACTUAL_KNOWLEDGE: "{prompt}\n\nAnswer briefly.",
-    MATHEMATICAL_REASONING: "{prompt}\n\nSolve. Final line: just the number.",
-    SENTIMENT_CLASSIFICATION: "{prompt}\n\nSentiment (one word):",
-    TEXT_SUMMARIZATION: "{prompt}\n\nOne sentence summary:",
-    NAMED_ENTITY_RECOGNITION: "{prompt}\n\nEntities (Name: Type):",
-    CODE_DEBUGGING: "{prompt}\n\nFixed code:",
-    LOGICAL_REASONING: "{prompt}\n\nApply each constraint, then state the answer.",
-    CODE_GENERATION: "{prompt}\n\n```python\n",
+    FACTUAL_KNOWLEDGE: (
+        "{prompt}\n\n"
+        "Give a clear, direct answer. Be concise but complete."
+    ),
+    MATHEMATICAL_REASONING: (
+        "{prompt}\n\n"
+        "Solve step by step, then clearly state the final answer."
+    ),
+    SENTIMENT_CLASSIFICATION: (
+        "{prompt}\n\n"
+        "Classify the sentiment and briefly justify your classification."
+    ),
+    TEXT_SUMMARIZATION: (
+        "{prompt}\n\n"
+        "Provide a concise summary following any length/format constraints given above."
+    ),
+    NAMED_ENTITY_RECOGNITION: (
+        "{prompt}\n\n"
+        "List each entity with its type (Person, Organization, Location, Date, etc.)."
+    ),
+    CODE_DEBUGGING: (
+        "{prompt}\n\n"
+        "Identify the bug, explain it briefly, then provide the corrected code."
+    ),
+    LOGICAL_REASONING: (
+        "{prompt}\n\n"
+        "Reason through this step by step, then clearly state your final answer."
+    ),
+    CODE_GENERATION: (
+        "{prompt}\n\n"
+        "Write the complete, working code."
+    ),
 }
 
 
