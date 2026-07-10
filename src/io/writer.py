@@ -21,8 +21,11 @@ async def save_results(results: list[Result], path: Path) -> None:
     def _save() -> None:
         path.parent.mkdir(parents=True, exist_ok=True)
 
-        # Convert Pydantic models to dicts
-        output_data = [result.model_dump(mode="json", exclude_none=True) for result in results]
+        # Only include task_id and answer (competition format)
+        output_data = [
+            {"task_id": result.task_id, "answer": result.answer}
+            for result in results
+        ]
 
         # orjson is faster and produces smaller output than stdlib json
         # OPT_INDENT_2 for readability (evaluation may inspect output)
