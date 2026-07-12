@@ -175,6 +175,11 @@ async def call_fireworks(
         "temperature": temperature,
         "max_tokens": max_tokens,
     }
+    # Reasoning models (e.g. glm-5p2) emit chain-of-thought into `content` by
+    # default, which bloats tokens and pollutes the graded answer. Disabling it
+    # yields a clean, direct final answer at a fraction of the token cost.
+    if settings.reasoning_effort:
+        payload["reasoning_effort"] = settings.reasoning_effort
 
     url = settings.base_url.rstrip("/") + "/chat/completions"
     data, latency_ms = await _request_with_retry(

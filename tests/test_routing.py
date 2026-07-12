@@ -46,7 +46,8 @@ async def test_route_task_uses_rules_when_confident(monkeypatch: pytest.MonkeyPa
 
     assert decision.category == "text_summarization"
     assert decision.route_source == "rules"
-    assert decision.model == "Qwen3-1.7B"
+    # text_summarization is a medium-tier category -> mid model, not the smallest.
+    assert decision.model == "Llama-3.2-3B"
     assert decision.confidence >= 0.65
 
 
@@ -73,4 +74,5 @@ async def test_route_task_falls_back_to_llm_for_ambiguous_prompt(
 
     assert decision.route_source == "llm"
     assert decision.category == "code_debugging"
-    assert decision.model == "Qwen3-1.7B"
+    # code_debugging is accuracy-critical -> largest available model.
+    assert decision.model == "Llama-3.2-3B"

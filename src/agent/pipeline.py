@@ -1,13 +1,14 @@
 """Single task processing pipeline."""
 import logging
 
-from src.models.task import Task
-from src.models.result import Result
 from src.config.settings import Settings
-from src.routing.router import route_task
-from src.prompts.builder import build_prompt, get_max_tokens
 from src.llm.client import call_fireworks
 from src.llm.parser import parse_response
+from src.models.result import Result
+from src.models.task import Task
+from src.prompts.builder import build_prompt, get_max_tokens
+from src.routing.router import route_task
+from src.shortcuts import try_shortcut
 
 logger = logging.getLogger(__name__)
 
@@ -16,6 +17,21 @@ async def process_single_task(task: Task, settings: Settings) -> Result:
     """Process a single task through the pipeline."""
     # Route to determine category and model
     routing_decision = await route_task(task, settings)
+
+    # Deterministic zero-token shortcut: only fires when provably correct,
+    # otherwise returns None and we fall through to the LLM path below.
+    shortcut_answer = try_shortcut(routing_decision.category, task.prompt)
+    if shortcut_answer is not None:
+        logger.info(f"Shortcut answered {task.task_id} ({routing_decision.category})")
+        return Result(
+            task_id=task.task_id,
+            answer=shortcut_answer,
+            metadata={
+                "category": routing_decision.category,
+                "model": "deterministic_shortcut",
+                "tokens": 0,
+            },
+        )
 
     # Build prompt
     prompt = build_prompt(task, routing_decision)

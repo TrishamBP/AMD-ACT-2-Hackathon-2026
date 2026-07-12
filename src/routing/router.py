@@ -29,6 +29,28 @@ _CODE_FENCE_RE: Final[re.Pattern[str]] = re.compile(
 )
 _JSON_RE: Final[re.Pattern[str]] = re.compile(r"^\s*\{.*\}\s*$", re.DOTALL)
 
+# Per-category rule-routing thresholds as (confidence, margin) multipliers on the
+# base settings thresholds. <1.0 = more aggressive deterministic routing (fewer
+# paid LLM router calls); >1.0 = more conservative (prefer the LLM router when
+# unsure). Robust categories with strong lexical signals and/or deterministic
+# validators are trusted earlier; open-ended categories stay cautious.
+#   effective_confidence_threshold = base_confidence * conf_mult
+#   effective_margin_threshold     = base_margin     * margin_mult
+_ROUTE_THRESHOLD_MULT: Final[dict[str, tuple[float, float]]] = {
+    # Strong, unambiguous signals (code fences, math operators, keyword anchors)
+    # and deterministic fallbacks -> route on rules aggressively.
+    CODE_DEBUGGING: (0.7, 0.7),
+    CODE_GENERATION: (0.7, 0.7),
+    MATHEMATICAL_REASONING: (0.7, 0.8),
+    SENTIMENT_CLASSIFICATION: (0.8, 0.8),
+    NAMED_ENTITY_RECOGNITION: (0.8, 0.8),
+    TEXT_SUMMARIZATION: (0.9, 0.9),
+    # Open-ended: keyword matches are weak evidence, so demand more before
+    # skipping the LLM router.
+    LOGICAL_REASONING: (1.1, 1.1),
+    FACTUAL_KNOWLEDGE: (1.2, 1.1),
+}
+
 
 @dataclass(frozen=True)
 class ModelMetadata:
@@ -232,12 +254,21 @@ def _score_category(prompt: str) -> tuple[dict[str, float], dict[str, list[str]]
     if math_signals:
         math_amount = min(0.20, 0.05 * math_signals)
         add(MATHEMATICAL_REASONING, math_amount, f"signal:math_operators:{math_amount:.2f}")
+    # A "<number> <operator> <number>" pattern (e.g. "12 * 12") is a strong,
+    # low-false-positive math indicator that dominates a bare "what is ...?".
+    has_arithmetic_expr = bool(
+        re.search(r"\d+(?:\.\d+)?\s*[\+\-\*/xX×÷^]\s*\d+", normalized)
+    )
+    if has_arithmetic_expr:
+        add(MATHEMATICAL_REASONING, 0.30, "signal:arithmetic_expression:0.30")
     if length >= 300:
         add(TEXT_SUMMARIZATION, 0.15, "signal:long_input:0.15")
     if "extract" in lower and "entity" in lower:
         add(NAMED_ENTITY_RECOGNITION, 0.20, "signal:ner_extract:0.20")
 
-    if "?" in normalized and not has_code:
+    # A trailing "?" hints factual, but only when there's no stronger structural
+    # signal (code or an arithmetic expression) that already claims the task.
+    if "?" in normalized and not has_code and not has_arithmetic_expr:
         add(FACTUAL_KNOWLEDGE, 0.10, "signal:question_mark:0.10")
 
     return scores, evidence
@@ -294,21 +325,83 @@ def _select_smallest_model(model_ids: list[str]) -> ModelMetadata:
     return min(chosen_pool, key=lambda item: item.sort_key)
 
 
-def _category_min_params(category: str) -> float:
-    return 0.0
+# Categories that need a capable model for correctness. For these we prefer the
+# LARGEST available model; for the rest we prefer the smallest (cheapest) one.
+# This is robust to whatever model IDs ALLOWED_MODELS contains at runtime.
+_HARD_CATEGORIES: Final[frozenset[str]] = frozenset(
+    {
+        MATHEMATICAL_REASONING,
+        LOGICAL_REASONING,
+        CODE_DEBUGGING,
+        CODE_GENERATION,
+    }
+)
+# Mid-tier categories benefit from a mid/large model but not the largest.
+_MEDIUM_CATEGORIES: Final[frozenset[str]] = frozenset(
+    {
+        FACTUAL_KNOWLEDGE,
+        TEXT_SUMMARIZATION,
+    }
+)
 
 
-def _select_handler_model(category: str, allowed_models: list[str]) -> ModelMetadata:
+def _difficulty_tier(category: str, prompt: str) -> int:
+    """Map (category, deterministic prompt features) to a tier: 0 easy .. 2 hard.
+
+    Starts from the category's base tier, then nudges up/down using cheap
+    lexical signals (length, math-operator density, code presence, line count).
+    Purely deterministic; no LLM, no I/O.
+    """
+    if category in _HARD_CATEGORIES:
+        base = 2
+    elif category in _MEDIUM_CATEGORIES:
+        base = 1
+    else:
+        base = 0
+
+    text = prompt.strip()
+    length = len(text)
+    has_code = bool(_CODE_FENCE_RE.search(text))
+    line_count = text.count("\n") + 1
+    math_density = len(re.findall(r"[+\-*/=<>^]", text))
+
+    score = float(base)
+    # Long / multi-line / code-heavy prompts are harder.
+    if length > 600 or line_count >= 8:
+        score += 0.5
+    if has_code and line_count >= 5:
+        score += 0.5
+    if math_density >= 4:
+        score += 0.25
+    # Very short, simple prompts are easier and safe on a small model.
+    if length < 80 and not has_code and math_density <= 1:
+        score -= 0.5
+
+    return max(0, min(2, round(score)))
+
+
+def _select_handler_model(
+    category: str,
+    allowed_models: list[str],
+    prompt: str = "",
+) -> ModelMetadata:
     metadata = sorted(
         (_parse_model_metadata(model_id) for model_id in allowed_models),
         key=lambda item: item.sort_key,
     )
-    compatible = [
-        item for item in metadata if item.params_billion >= _category_min_params(category)
-    ]
-    if compatible:
-        return compatible[0]
-    return metadata[0]
+    if not metadata:
+        raise ValueError("ALLOWED_MODELS is empty")
+
+    # Prefer instruction-capable models when the flag can be inferred.
+    pool = [item for item in metadata if item.instruction] or metadata
+
+    # Difficulty tier -> position in the size-sorted pool.
+    tier = _difficulty_tier(category, prompt)
+    if tier <= 0:
+        return pool[0]  # smallest / cheapest
+    if tier == 1:
+        return pool[len(pool) // 2]  # mid-tier
+    return pool[-1]  # largest / most capable
 
 
 def _format_router_prompt(prompt: str) -> str:
@@ -356,13 +449,23 @@ async def _fallback_llm_route(prompt: str, settings: Settings) -> tuple[str, flo
     return _parse_router_json(response.content)
 
 
+def _effective_thresholds(category: str, settings: Settings) -> tuple[float, float]:
+    """Return (confidence, margin) thresholds tuned for the rule-winner category."""
+    conf_mult, margin_mult = _ROUTE_THRESHOLD_MULT.get(category, (1.0, 1.0))
+    return (
+        settings.router_threshold * conf_mult,
+        settings.router_margin_threshold * margin_mult,
+    )
+
+
 async def route_task(task: Task, settings: Settings) -> RoutingDecision:
     """Route a task through deterministic rules, then LLM fallback if needed."""
     scores, evidence = _score_category(task.prompt)
     winner, confidence, runner_up, margin = _select_winner(scores)
+    conf_threshold, margin_threshold = _effective_thresholds(winner, settings)
     should_route_rules = (
-        confidence >= settings.router_threshold
-        and margin >= settings.router_margin_threshold
+        confidence >= conf_threshold
+        and margin >= margin_threshold
     )
 
     if should_route_rules:
@@ -379,7 +482,7 @@ async def route_task(task: Task, settings: Settings) -> RoutingDecision:
             route_source = "rules_fallback"
         winner, confidence, runner_up, margin = _select_winner(scores)
 
-    model_metadata = _select_handler_model(category, settings.allowed_models)
+    model_metadata = _select_handler_model(category, settings.allowed_models, task.prompt)
     return RoutingDecision(
         category=category,
         confidence=route_confidence,
