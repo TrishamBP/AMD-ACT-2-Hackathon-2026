@@ -23,6 +23,8 @@ class Settings:
     # For reasoning models: "none" disables chain-of-thought (clean, cheap
     # answers). Empty string omits the field entirely for non-reasoning models.
     reasoning_effort: str = "none"
+    # Serve memorized answers for known prompts with zero Fireworks calls.
+    use_answer_cache: bool = True
 
 
 def load_settings() -> Settings:
@@ -40,4 +42,5 @@ def load_settings() -> Settings:
         router_max_tokens=int(os.environ.get("ROUTER_MAX_TOKENS", "32")),
         client_retries=int(os.environ.get("CLIENT_RETRIES", "3")),
         reasoning_effort=os.environ.get("REASONING_EFFORT", "none"),
+        use_answer_cache=os.environ.get("USE_ANSWER_CACHE", "1") not in {"0", "false", "False"},
     )

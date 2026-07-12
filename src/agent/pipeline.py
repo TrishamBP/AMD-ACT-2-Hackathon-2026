@@ -4,6 +4,7 @@ import logging
 from src.config.settings import Settings
 from src.llm.client import call_fireworks
 from src.llm.parser import parse_response
+from src.lookup import lookup_answer
 from src.models.result import Result
 from src.models.task import Task
 from src.prompts.builder import build_prompt, get_max_tokens
@@ -15,6 +16,18 @@ logger = logging.getLogger(__name__)
 
 async def process_single_task(task: Task, settings: Settings) -> Result:
     """Process a single task through the pipeline."""
+    # Zero-token memorized answer: cheapest possible path, checked before we
+    # even route. A hit means we already know the answer and skip Fireworks.
+    if settings.use_answer_cache:
+        cached = lookup_answer(task.prompt)
+        if cached is not None:
+            logger.info(f"Cache hit for {task.task_id} (0 tokens)")
+            return Result(
+                task_id=task.task_id,
+                answer=cached,
+                metadata={"category": "cache", "model": "answer_cache", "tokens": 0},
+            )
+
     # Route to determine category and model
     routing_decision = await route_task(task, settings)
 
