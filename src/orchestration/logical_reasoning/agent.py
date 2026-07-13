@@ -5,6 +5,9 @@ import logging
 from dataclasses import dataclass, field
 from typing import Protocol
 
+from src.orchestration.cache.answer_cache import AnswerCache
+from src.orchestration.compression.compressor import PromptCompressor
+from src.orchestration.deterministic.logic import LogicDeterministicHandler
 from src.orchestration.logging import log_node_event
 from src.orchestration.logical_reasoning.guardrails import LogicalReasoningGuardrails
 from src.orchestration.logical_reasoning.prompt_builder import (
@@ -47,6 +50,9 @@ class LogicalReasoningAgent:
     """Deterministic logical reasoning node with Fireworks fallback only when required."""
 
     client: LogicalReasoningClient | None = None
+    cache: AnswerCache = field(default_factory=AnswerCache)
+    simple_logic_handler: LogicDeterministicHandler = field(default_factory=LogicDeterministicHandler)
+    compressor: PromptCompressor = field(default_factory=PromptCompressor)
     tools: LogicalReasoningToolSet = field(default_factory=LogicalReasoningToolSet)
     solvers: SolverRegistry = field(default_factory=SolverRegistry)
     guardrails: LogicalReasoningGuardrails = field(default_factory=LogicalReasoningGuardrails)
@@ -160,6 +166,41 @@ class LogicalReasoningAgent:
     @track_tokens
     async def __call__(self, state: AgentState) -> AgentState:
         """Solve logic tasks deterministically and fall back only when needed."""
+        prompt_text = state.original_prompt
+
+        cached = self.cache.get(prompt_text)
+        if cached:
+            log_node_event(
+                "logical_reasoning_cache_hit",
+                task_id=state.task_id,
+                node="LogicalReasoningAgent",
+                method="cache",
+            )
+            return state.model_copy(
+                update={
+                    "llm_response": cached.answer,
+                    "validated_response": {"answer": cached.answer},
+                }
+            )
+
+        if self.simple_logic_handler.can_solve(prompt_text):
+            solved, answer, confidence, method = self.simple_logic_handler.solve(prompt_text)
+            if solved and confidence >= 0.90:
+                self.cache.set(prompt_text, answer, confidence, method, "logical_reasoning")
+                log_node_event(
+                    "logical_reasoning_simple_deterministic",
+                    task_id=state.task_id,
+                    node="LogicalReasoningAgent",
+                    method=method,
+                    confidence=confidence,
+                )
+                return state.model_copy(
+                    update={
+                        "llm_response": answer,
+                        "validated_response": {"answer": answer},
+                    }
+                )
+
         payload = self.guardrails.validate_input(self._build_input(state))
         parsed = await self.tools.constraint_extractor.arun(payload.request)
         results = await self.solvers.run(parsed)

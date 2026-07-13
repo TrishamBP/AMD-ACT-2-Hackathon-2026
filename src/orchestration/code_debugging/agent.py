@@ -5,6 +5,7 @@ import logging
 from dataclasses import dataclass, field
 from typing import Protocol
 
+from src.orchestration.cache.answer_cache import AnswerCache
 from src.orchestration.code_debugging.detectors import (
     BugDetectorRegistry,
     ConfidenceAggregator,
@@ -25,6 +26,8 @@ from src.orchestration.code_debugging.schemas import (
     ValidationResult,
 )
 from src.orchestration.code_debugging.tools import CodeDebuggingToolSet
+from src.orchestration.compression.compressor import PromptCompressor
+from src.orchestration.deterministic.code_debugging import CodeDebuggingDeterministicHandler
 from src.orchestration.logging import log_node_event
 from src.orchestration.state.agent_state import AgentState
 from src.orchestration.tracing import track_tokens, trace_node
@@ -50,6 +53,11 @@ class CodeDebuggingAgent:
     """Compiler-like debugging node with deterministic first-pass fixes."""
 
     client: CodeDebuggingClient | None = None
+    cache: AnswerCache = field(default_factory=AnswerCache)
+    simple_handler: CodeDebuggingDeterministicHandler = field(
+        default_factory=CodeDebuggingDeterministicHandler
+    )
+    compressor: PromptCompressor = field(default_factory=PromptCompressor)
     tools: CodeDebuggingToolSet = field(default_factory=CodeDebuggingToolSet)
     detectors: BugDetectorRegistry = field(default_factory=BugDetectorRegistry)
     aggregator: ConfidenceAggregator = field(default_factory=ConfidenceAggregator)
@@ -176,6 +184,41 @@ class CodeDebuggingAgent:
     @track_tokens
     async def __call__(self, state: AgentState) -> AgentState:
         """Fix buggy code using deterministic detectors first."""
+        prompt_text = state.original_prompt
+
+        cached = self.cache.get(prompt_text)
+        if cached:
+            log_node_event(
+                "code_debugging_cache_hit",
+                task_id=state.task_id,
+                node="CodeDebuggingAgent",
+                method="cache",
+            )
+            return state.model_copy(
+                update={
+                    "llm_response": cached.answer,
+                    "validated_response": {"answer": cached.answer},
+                }
+            )
+
+        if self.simple_handler.can_solve(prompt_text):
+            solved, answer, confidence, method = self.simple_handler.solve(prompt_text)
+            if solved and confidence >= 0.90:
+                self.cache.set(prompt_text, answer, confidence, method, "code_debugging")
+                log_node_event(
+                    "code_debugging_simple_deterministic",
+                    task_id=state.task_id,
+                    node="CodeDebuggingAgent",
+                    method=method,
+                    confidence=confidence,
+                )
+                return state.model_copy(
+                    update={
+                        "llm_response": answer,
+                        "validated_response": {"answer": answer},
+                    }
+                )
+
         payload = self.guardrails.validate_input(self._build_input(state))
         parsed = await self.tools.parser.arun(payload)
         static_analysis = await self.tools.static_analyzer.arun(parsed.language, parsed.code)

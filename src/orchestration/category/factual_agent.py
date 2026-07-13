@@ -5,6 +5,8 @@ import logging
 from dataclasses import dataclass, field
 from typing import Any, Protocol
 
+from src.orchestration.cache.answer_cache import AnswerCache
+from src.orchestration.compression.compressor import PromptCompressor
 from src.orchestration.factual_knowledge.guardrails import FactualKnowledgeGuardrails
 from src.orchestration.factual_knowledge.prompt_builder import (
     build_factual_prompt,
@@ -53,6 +55,8 @@ class FactualKnowledgeAgent:
     """Factual knowledge category node."""
 
     client: FactualKnowledgeClient | None = None
+    cache: AnswerCache = field(default_factory=AnswerCache)
+    compressor: PromptCompressor = field(default_factory=PromptCompressor)
     web_search_tool: WebSearchTool | None = None
     guardrails: FactualKnowledgeGuardrails = field(default_factory=FactualKnowledgeGuardrails)
     validator: ResponseValidator = field(default_factory=ResponseValidator)
@@ -113,9 +117,26 @@ class FactualKnowledgeAgent:
     @track_tokens
     async def __call__(self, state: AgentState) -> AgentState:
         """Process a factual knowledge task."""
+        prompt_text = state.original_prompt
+
+        cached = self.cache.get(prompt_text)
+        if cached:
+            log_node_event(
+                "factual_cache_hit",
+                task_id=state.task_id,
+                node="FactualKnowledgeAgent",
+                method="cache",
+            )
+            return state.model_copy(
+                update={
+                    "llm_response": cached.answer,
+                    "validated_response": {"answer": cached.answer},
+                }
+            )
+
         factual_input = self.guardrails.validate_input(self._build_input(state))
-        prompt = build_factual_prompt(factual_input)
-        working_state = self._seed_state(state, prompt)
+        compressed_prompt = self.compressor.compress_factual(factual_input.question)
+        working_state = self._seed_state(state, compressed_prompt)
 
         if self.client is None:
             return working_state.model_copy(
@@ -128,9 +149,13 @@ class FactualKnowledgeAgent:
                 update={"errors": [*working_state.errors, "selected_model_missing"]}
             )
 
-        raw_response = await self._call_client(prompt, model)
+        raw_response = await self._call_client(compressed_prompt, model)
+        answer = raw_response.strip()
+
+        self.cache.set(prompt_text, answer, 0.90, "llm_compressed", "factual_knowledge")
+
         structured = FactualKnowledgeOutput(
-            answer=raw_response,
+            answer=answer,
             confidence=1.0,
             metadata=Metadata(
                 task_id=state.task_id,
@@ -156,7 +181,7 @@ class FactualKnowledgeAgent:
         )
         return working_state.model_copy(
             update={
-                "llm_response": raw_response,
+                "llm_response": answer,
                 "validated_response": validated_output.model_dump(),
                 "token_usage": validated_output.token_usage,
             }
