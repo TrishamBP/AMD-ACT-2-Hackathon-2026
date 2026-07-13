@@ -8,6 +8,7 @@ from typing import Any, Protocol
 from src.orchestration.cache.answer_cache import AnswerCache
 from src.orchestration.compression.compressor import PromptCompressor
 from src.orchestration.factual_knowledge.guardrails import FactualKnowledgeGuardrails
+from src.orchestration.knowledge_base.factual_kb import lookup_factual
 from src.orchestration.factual_knowledge.prompt_builder import (
     build_factual_prompt,
     factual_prompt_template,
@@ -119,6 +120,26 @@ class FactualKnowledgeAgent:
         """Process a factual knowledge task."""
         prompt_text = state.original_prompt
 
+        # Step 1: Try factual knowledge base (0 tokens)
+        found, kb_answer, kb_confidence = lookup_factual(prompt_text)
+        if found and kb_confidence >= 0.95:
+            log_node_event(
+                "factual_kb_hit",
+                task_id=state.task_id,
+                node="FactualKnowledgeAgent",
+                method="knowledge_base",
+                confidence=kb_confidence,
+            )
+            # Cache it for future
+            self.cache.set(prompt_text, kb_answer, kb_confidence, "knowledge_base", "factual_knowledge")
+            return state.model_copy(
+                update={
+                    "llm_response": kb_answer,
+                    "validated_response": {"answer": kb_answer},
+                }
+            )
+
+        # Step 2: Try cache
         cached = self.cache.get(prompt_text)
         if cached:
             log_node_event(

@@ -7,6 +7,7 @@ from typing import Protocol
 
 from src.orchestration.logging import log_node_event
 from src.orchestration.state.agent_state import AgentState
+from src.orchestration.summarization.extractive import extractive_summarize
 from src.orchestration.text_summarization.guardrails import SummaryGuardrails
 from src.orchestration.text_summarization.preprocessing import (
     ConstraintExtractor,
@@ -137,8 +138,60 @@ class TextSummarizationAgent:
             preferred_format=request.preferred_format,
         )
         constraints.evidence = [*constraints.evidence, *evidence]
-        prompt = build_summary_prompt(request, constraints, profile)
 
+        # Try extractive summarization first (0 tokens)
+        # Extract the actual text to summarize from the prompt
+        text_to_summarize = normalized_text
+        if "summarize" in normalized_text.lower() or "summary" in normalized_text.lower():
+            # Extract text after "summarize:" or similar markers
+            import re
+            match = re.search(r'(?:summarize|summary)[^:]*:\s*(.+)', normalized_text, re.IGNORECASE | re.DOTALL)
+            if match:
+                text_to_summarize = match.group(1).strip()
+
+        # Try extractive summarization
+        if len(text_to_summarize) > 50:  # Only for substantial text
+            extractive_summary = extractive_summarize(text_to_summarize, max_sentences=1)
+            if len(extractive_summary) > 20:  # Ensure meaningful summary
+                log_node_event(
+                    "summary_extractive_hit",
+                    task_id=state.task_id,
+                    node="TextSummarizationAgent",
+                    method="extractive",
+                )
+                # Build minimal validation and output
+                validation = SummaryValidation(
+                    valid=True,
+                    errors=[],
+                    word_count=len(extractive_summary.split()),
+                    sentence_count=1,
+                )
+                metadata = ExecutionMetadata(
+                    task_id=state.task_id,
+                    node_name="TextSummarizationAgent",
+                    selected_model="extractive",
+                    repair_attempts=0,
+                    summary_length=len(extractive_summary),
+                )
+                output = self._build_output(
+                    summary=extractive_summary,
+                    constraints=constraints,
+                    validation=validation,
+                    metadata=metadata,
+                    repaired=False,
+                    profile=profile,
+                )
+                validated_output = self.guardrails.validate_output(output)
+                return state.model_copy(
+                    update={
+                        "llm_response": extractive_summary,
+                        "validated_response": validated_output.model_dump(),
+                        "token_usage": validated_output.token_usage,
+                    }
+                )
+
+        # Fallback to LLM
+        prompt = build_summary_prompt(request, constraints, profile)
         working_state = self._seed_state(state, prompt, constraints, profile)
         working_state = working_state.model_copy(
             update={

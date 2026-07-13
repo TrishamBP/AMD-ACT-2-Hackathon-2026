@@ -10,6 +10,7 @@ from src.orchestration.code_generation.prompt_builder import (
     build_code_generation_prompt,
     build_code_repair_prompt,
 )
+from src.orchestration.code_generation.templates import match_template
 from src.orchestration.code_generation.schemas import (
     CodeGenerationConfig,
     CodeGenerationInput,
@@ -142,6 +143,26 @@ class CodeGenerationAgent:
     async def __call__(self, state: AgentState) -> AgentState:
         """Generate deterministic code with a single LLM call and optional repair."""
         payload = self.guardrails.validate_input(self._build_input(state))
+
+        # Try template matching first (0 tokens)
+        template_code = match_template(state.original_prompt)
+        if template_code is not None:
+            log_node_event(
+                "code_template_hit",
+                task_id=state.task_id,
+                node="CodeGenerationAgent",
+                method="template",
+            )
+            # Return simple response bypassing complex schemas
+            return state.model_copy(
+                update={
+                    "llm_response": template_code,
+                    "validated_response": {"code": template_code, "template_matched": True},
+                    "token_usage": TokenUsage(),
+                }
+            )
+
+        # Fallback to LLM
         (
             language,
             complexity,
